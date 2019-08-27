@@ -136,7 +136,10 @@ import geotrellis.util.annotations.experimental
       keys.get(pair._1).get :: values.get(pair._2).get :: acc
     }
 
-    vt.Tile.Feature(None, tags, Some(geomType), Command.uncommands(cmds))
+    /** create unique, random(-ish) id for Layer */
+    val id: Option[Long] = Some(math.abs(math.random * data.hashCode).toLong)
+
+    vt.Tile.Feature(id, tags, Some(geomType), Command.uncommands(cmds))
   }
 
   /** Pretty-print this `Layer`. */
