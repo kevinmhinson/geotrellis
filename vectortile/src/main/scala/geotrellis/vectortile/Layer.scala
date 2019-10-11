@@ -131,13 +131,37 @@ import geotrellis.util.annotations.experimental
     cmds: Seq[Command],
     data: Map[String, Value]
   ): vt.Tile.Feature = {
-    val tags = data.toSeq.foldRight(List.empty[Int]) { case (pair, acc) =>
+
+    /** 
+      *                   {KEVIN FORK}
+      * need to include a "id4VecTiles" instead of default to None;
+      * the 'id' should be the same for polygons that span tiles
+      * so old approach of randomly assigning doesn't work;
+      * passing in an 'id' field in metadata to allow unique id per polygon
+      * in starling.hex.output.formatter's BEFORE polygons are split across tiles; 
+      * BUT we don't want that value in the metadata of the vector tile,
+      * so we dump when creating 'tags', and even though it's still in 
+      * keys and values, tags to the full value are never created so
+      * it won't end up in the vector tiles;
+      *    (note: I think tags is a memory efficient way of not writing
+      *           the same key String over and over...  just an index
+      *           to a Seq and the keys and values are listed once in
+      *           that Seq; i.e. the index of a key and it's value may not
+      *           be the same since .distinct is called after flattening
+      *           in 'totalMeta' above)
+      */
+
+    /** {KEVIN FORK} drop 'id' from meta data before creating protobuf */
+    val tags = { data - "id4VecTiles" }.toSeq.foldRight(List.empty[Int]) { case (pair, acc) =>
       /* These `Option.get` _should_ never fail */
       keys.get(pair._1).get :: values.get(pair._2).get :: acc
     }
 
-    /** create unique, random(-ish) id for Layer */
-    val id: Option[Long] = Some(math.abs(math.random * data.hashCode).toLong)
+    /** {KEVIN FORK} create unique id from data if it exists */
+    val idFromMeta: scala.util.Try[Long] = scala.util.Try { data("id4VecTiles").asInstanceOf[VInt64].value } // hopefully always THIS
+    val id: Option[Long] = 
+      if (idFromMeta.isSuccess) idFromMeta.toOption
+      else Some(scala.math.abs(scala.math.random * data.hashCode).toLong)
 
     vt.Tile.Feature(id, tags, Some(geomType), Command.uncommands(cmds))
   }
